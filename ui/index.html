@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Claims Model Validation</title>
+<style>
+:root{
+  --bg:#f6f5f1;--surface:#fff;--ink:#1c1b19;--muted:#6b6a65;--line:#e4e2da;
+  --a:#1f6f5c;--b:#c2562b;--c:#3b5b92;--ok:#1f7a45;--bad:#b3261e;--warn:#9a6700;
+  --shadow:0 0 0 1px rgba(0,0,0,.06),0 1px 2px rgba(0,0,0,.05),0 4px 12px rgba(0,0,0,.05);
+  --r-in:8px;--pad:16px;--r-out:calc(var(--r-in) + var(--pad));
+}
+@media (prefers-color-scheme:dark){:root{
+  --bg:#141413;--surface:#1d1d1b;--ink:#ecebe6;--muted:#9c9b94;--line:#2e2e2b;
+  --a:#4fb79d;--b:#e8845b;--c:#7fa1de;--ok:#5fcf8b;--bad:#ff8a80;--warn:#e0b34a;
+  --shadow:0 0 0 1px rgba(255,255,255,.07),0 1px 2px rgba(0,0,0,.4),0 4px 12px rgba(0,0,0,.3);}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+.num,td,th,.kpi b{font-variant-numeric:tabular-nums}
+header{max-width:1120px;margin:0 auto;padding:28px 16px 8px}
+h1{font-size:22px;margin:0;text-wrap:balance;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:4px 0 0;text-wrap:pretty}
+nav{max-width:1120px;margin:16px auto 0;padding:0 16px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+button{font:inherit;color:inherit;cursor:pointer}
+nav button{background:none;border:0;border-bottom:2px solid transparent;padding:10px 12px;color:var(--muted);transition-property:color,border-color;transition-duration:.12s;transition-timing-function:ease-out;min-height:44px}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--a)}
+@media (hover:hover){nav button:hover{color:var(--ink)}}
+main{max-width:1120px;margin:0 auto;padding:20px 16px 64px}
+section[hidden]{display:none}
+.grid{display:grid;gap:16px}
+.g4{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,480px),1fr))}
+.card{background:var(--surface);border:1px solid transparent;box-shadow:var(--shadow);border-radius:var(--r-out);padding:var(--pad)}
+.kpi span{color:var(--muted);font-size:13px}
+.kpi b{display:block;font-size:28px;letter-spacing:-.02em;margin-top:2px}
+.kpi small{color:var(--muted)}
+h2{font-size:16px;margin:0 0 4px}
+h3{font-size:14px;margin:0 0 4px}
+.note{color:var(--muted);font-size:13px;margin:0 0 10px;text-wrap:pretty}
+svg{width:100%;height:auto;display:block;overflow:visible}
+svg text{fill:var(--muted);font-size:11px;font-family:inherit}
+svg .ax{stroke:var(--line)}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:7px 8px;text-align:right;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:500}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:12px;font-weight:500}
+.pill.ok{background:color-mix(in oklab,var(--ok) 16%,transparent);color:var(--ok)}
+.pill.bad{background:color-mix(in oklab,var(--bad) 16%,transparent);color:var(--bad)}
+.pill.warn{background:color-mix(in oklab,var(--warn) 16%,transparent);color:var(--warn)}
+form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px}
+label{display:grid;gap:4px;font-size:13px;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-in);padding:8px 10px;min-height:40px}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--a);outline-offset:2px}
+.btn{background:var(--a);color:#fff;border:1px solid transparent;border-radius:var(--r-in);padding:10px 16px;font-weight:600;transition-property:scale,opacity;transition-duration:.15s;transition-timing-function:ease-out}
+.btn:enabled:active{scale:.96}
+.btn:disabled{opacity:.5;cursor:default}
+.slides-wrap{position:relative}
+.slide{aspect-ratio:16/9;display:flex;flex-direction:column;justify-content:center;padding:clamp(20px,5vw,56px);gap:10px}
+.slide h2{font-size:clamp(20px,3.4vw,34px);letter-spacing:-.02em;text-wrap:balance}
+.slide p,.slide li{font-size:clamp(14px,1.8vw,19px);text-wrap:pretty}
+.slide ul{margin:0;padding-left:20px;display:grid;gap:6px}
+.slide .big{font-size:clamp(34px,7vw,76px);font-weight:700;letter-spacing:-.03em;color:var(--a)}
+.slidebar{display:flex;align-items:center;gap:10px;margin-top:12px;justify-content:center}
+.slidebar button{background:var(--surface);border:1px solid transparent;box-shadow:var(--shadow);border-radius:var(--r-in);padding:8px 14px;transition-property:scale;transition-duration:.15s;transition-timing-function:ease-out}
+.slidebar button:enabled:active{scale:.96}
+.slidebar button:disabled{opacity:.4}
+.fade{animation:none}
+@media (prefers-reduced-motion:no-preference){section:not([hidden]){animation:in .3s ease-out}
+@keyframes in{from{opacity:0;translate:0 8px}to{opacity:1;translate:0 0}}}
+#err{display:none;margin:16px;padding:16px;border-radius:var(--r-in);background:color-mix(in oklab,var(--bad) 14%,transparent);color:var(--bad)}
+</style>
+</head>
+<body>
+<header>
+  <h1>Auto Insurance Claims Model Validation</h1>
+  <p class="sub" id="sub">Loading results...</p>
+</header>
+<div id="err"></div>
+<nav role="tablist" id="tabs"></nav>
+<main>
+  <section id="overview"></section>
+  <section id="frequency" hidden></section>
+  <section id="lr" hidden></section>
+  <section id="limits" hidden></section>
+  <section id="score" hidden></section>
+  <section id="slides" hidden></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);
+const f=(x,d=2)=>Number(x).toLocaleString(undefined,{minimumFractionDigits:d,maximumFractionDigits:d});
+const pct=(x,d=1)=>f(x*100,d)+'%';
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+let R;
+const TABS=[['overview','Overview'],['frequency','Lift & calibration'],['lr','Loss-ratio intervals'],['limits','Limitations'],['score','Score a policy'],['slides','10-slide summary']];
+
+/* ---------- tiny SVG chart helpers ---------- */
+function lineChart({data,series,xKey='bin',w=520,h=260,yFmt=v=>f(v,3),xLabel='Predicted-risk decile (low to high)'}){
+  const m={l:50,r:12,t:10,b:34},iw=w-m.l-m.r,ih=h-m.t-m.b;
+  const vals=data.flatMap(d=>series.map(s=>d[s.key]));
+  let lo=Math.min(...vals),hi=Math.max(...vals);const pad=(hi-lo)*.08||.01;lo=Math.max(0,lo-pad);hi+=pad;
+  const X=i=>m.l+iw*(i/(data.length-1)),Y=v=>m.t+ih*(1-(v-lo)/(hi-lo));
+  let s=`<svg viewBox="0 0 ${w} ${h}" role="img">`;
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);s+=`<line class="ax" x1="${m.l}" x2="${w-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-6}" y="${y+4}" text-anchor="end">${yFmt(v)}</text>`}
+  data.forEach((d,i)=>{if(data.length<=12||i%2==0)s+=`<text x="${X(i)}" y="${h-16}" text-anchor="middle">${d[xKey]}</text>`});
+  s+=`<text x="${m.l+iw/2}" y="${h-2}" text-anchor="middle">${xLabel}</text>`;
+  series.forEach(se=>{
+    s+=`<polyline fill="none" stroke="${css(se.color)}" stroke-width="2" ${se.dash?'stroke-dasharray="5 4"':''} points="${data.map((d,i)=>X(i)+','+Y(d[se.key])).join(' ')}"/>`;
+    if(!se.dash)data.forEach((d,i)=>s+=`<circle cx="${X(i)}" cy="${Y(d[se.key])}" r="3" fill="${css(se.color)}"><title>${se.label} @ ${d[xKey]}: ${yFmt(d[se.key])}</title></circle>`);
+  });
+  s+='</svg>';
+  s+=`<div class="legend">${series.map(se=>`<span><i style="background:${css(se.color)}"></i>${se.label}</span>`).join('')}</div>`;
+  return s;
+}
+function intervalChart(segs,w=720,h=300){
+  const m={l:50,r:12,t:12,b:34},iw=w-m.l-m.r,ih=h-m.t-m.b;
+  const lo=Math.max(0,Math.min(...segs.map(s=>Math.min(s.ci_low,s.observed_lr)))*.9),hi=Math.max(...segs.map(s=>Math.max(s.ci_high,s.observed_lr)))*1.05;
+  const X=i=>m.l+iw*((i+.5)/segs.length),Y=v=>m.t+ih*(1-(v-lo)/(hi-lo));
+  let s=`<svg viewBox="0 0 ${w} ${h}" role="img">`;
+  for(let i=0;i<=4;i++){const v=lo+(hi-lo)*i/4,y=Y(v);s+=`<line class="ax" x1="${m.l}" x2="${w-m.r}" y1="${y}" y2="${y}"/><text x="${m.l-6}" y="${y+4}" text-anchor="end">${pct(v,0)}</text>`}
+  segs.forEach((g,i)=>{
+    const c=css(g.covered?'--ok':'--bad'),x=X(i);
+    s+=`<line x1="${x}" x2="${x}" y1="${Y(g.ci_low)}" y2="${Y(g.ci_high)}" stroke="${c}" stroke-width="6" stroke-linecap="round" opacity=".35"/>`;
+    s+=`<circle cx="${x}" cy="${Y(g.predicted_lr)}" r="4" fill="${css('--c')}"><title>Predicted ${pct(g.predicted_lr)}</title></circle>`;
+    s+=`<path d="M${x-6} ${Y(g.observed_lr)}h12" stroke="${c}" stroke-width="3"><title>Observed ${pct(g.observed_lr)} (95% interval ${pct(g.ci_low)} to ${pct(g.ci_high)})</title></path>`;
+    s+=`<text x="${x}" y="${h-16}" text-anchor="middle">${g.segment}</text>`;
+  });
+  s+=`<text x="${m.l+iw/2}" y="${h-2}" text-anchor="middle">Policy segment (1 = lowest predicted loss cost, 10 = highest)</text></svg>`;
+  s+=`<div class="legend"><span><i style="background:${css('--ok')};opacity:.4"></i>95% bootstrap interval (covered)</span><span><i style="background:${css('--bad')};opacity:.4"></i>(missed)</span><span><i style="background:${css('--c')};border-radius:50%"></i>Predicted LR</span><span><i style="background:${css('--ink')};height:3px;vertical-align:3px"></i>Observed LR (bar)</span></div>`;
+  return s;
+}
+function barChart(items,{w=520,rowH=24,fmt=v=>f(v,5)}={}){
+  const m={l:150,r:60},h=items.length*rowH+8,mx=Math.max(...items.map(i=>i.v));
+  let s=`<svg viewBox="0 0 ${w} ${h}" role="img">`;
+  items.forEach((it,i)=>{const y=i*rowH+4,bw=(w-m.l-m.r)*it.v/mx;
+    s+=`<text x="${m.l-8}" y="${y+15}" text-anchor="end">${it.k}</text><rect x="${m.l}" y="${y+3}" width="${Math.max(bw,1)}" height="${rowH-9}" rx="3" fill="${css('--a')}"/><text x="${m.l+bw+6}" y="${y+15}">${fmt(it.v)}</text>`});
+  return s+'</svg>';
+}
+const kpi=(label,val,sub)=>`<div class="card kpi"><span>${label}</span><b>${val}</b><small>${sub||''}</small></div>`;
+
+/* ---------- views ---------- */
+function renderAll(){
+  const m=R.meta,fr=R.frequency,cv=R.coverage;
+  $('#sub').textContent=`${m.dataset} - ${m.policies.toLocaleString()} policies, ${m.claims.toLocaleString()} claims, ${f(m.exposure_years,0)} policy-years. Held-out test set: ${m.test_policies.toLocaleString()} policies.`;
+  $('#overview').innerHTML=`
+  <div class="grid g4">
+    ${kpi('Poisson deviance improvement',f(fr.improvement_pct,2)+'%','GBM vs GLM baseline, held-out')}
+    ${kpi('Frequency Gini',f(fr.gbm_gini,3),'GLM '+f(fr.glm_gini,3))}
+    ${kpi('Pure-premium Gini',f(R.pure_premium.gbm_gini,3),'GLM '+f(R.pure_premium.glm_gini,3))}
+    ${kpi('Bootstrap coverage',cv.covered+' of '+cv.total,'segments inside 95% interval')}
+  </div>
+  <div class="grid g2" style="margin-top:16px">
+    <div class="card"><h2>Held-out Poisson deviance</h2><p class="note">Lower is better. Mean deviance, exposure weighted.</p>
+      <table><tr><th>Model</th><th>Deviance</th><th>vs null</th></tr>
+      <tr><td>Null (constant rate)</td><td>${f(fr.null_deviance,5)}</td><td>-</td></tr>
+      <tr><td>Poisson GLM (banded)</td><td>${f(fr.glm_deviance,5)}</td><td>${f((1-fr.glm_deviance/fr.null_deviance)*100,2)}% better</td></tr>
+      <tr><td><b>Gradient-boosted</b></td><td><b>${f(fr.gbm_deviance,5)}</b></td><td>${f((1-fr.gbm_deviance/fr.null_deviance)*100,2)}% better</td></tr></table>
+      <h3 style="margin-top:14px">Severity (Gamma deviance)</h3>
+      <p class="note">Null ${f(R.severity.null_deviance,4)} | GLM ${f(R.severity.glm_deviance,4)} | GBM ${f(R.severity.gbm_deviance,4)}. Severity is noisy (few, heavy-tailed claims), so it is the weaker half of the pure premium. Model used: ${m.severity_model_used}.</p></div>
+    <div class="card"><h2>What drives predicted frequency</h2><p class="note">Permutation importance: deviance increase when a feature is shuffled.</p>
+      ${barChart(R.importance.slice(0,10).map(i=>({k:i.feature,v:Math.max(i.importance,0)})))}</div>
+  </div>
+  <div class="card" style="margin-top:16px"><h2>Method</h2>
+   <p class="note">SQL (SQLite) loads and cleans raw freMTPL2 tables: claim count cap at 4, exposure cap at 1, claim amounts capped at ${m.severity_cap.toLocaleString()}. 80/20 train/test split (seed ${m.seed}); GBM hyper-parameters tuned on a validation slice of the training data only. Freq: Poisson, exposure as weight. Severity: Gamma on claim-level averages. Because freMTPL2 has no premium column, the loss ratio uses a premium proxy: GLM pure premium divided by a ${pct(m.target_lr,0)} target loss ratio. Pipeline runtime ${m.runtime_sec}s.</p></div>`;
+
+  const L=R.lift,DL=R.double_lift;
+  $('#frequency').innerHTML=`<div class="grid g2">
+    <div class="card"><h2>Lift chart</h2><p class="note">Observed claim frequency by predicted-risk decile (GBM ordering). A steeper actual line means better rank ordering.</p>
+      ${lineChart({data:L,series:[{key:'actual',label:'Actual',color:'--ink'},{key:'glm',label:'GLM',color:'--b',dash:true},{key:'gbm',label:'GBM',color:'--a'}]})}</div>
+    <div class="card"><h2>Calibration (20 bins)</h2><p class="note">Predicted vs actual frequency. Points on the diagonal = well calibrated.</p>${calibration(R.calibration)}</div>
+    <div class="card"><h2>Double lift</h2><p class="note">Policies sorted by GBM / GLM prediction ratio. Where the GBM says riskier than GLM (right), actual should follow the GBM.</p>
+      ${lineChart({data:DL,series:[{key:'actual',label:'Actual',color:'--ink'},{key:'glm',label:'GLM',color:'--b',dash:true},{key:'gbm',label:'GBM',color:'--a'}],xLabel:'GBM/GLM ratio decile (GBM relatively cheaper to dearer)'})}</div>
+    <div class="card"><h2>Pure-premium lift</h2><p class="note">Loss cost per policy-year (claim frequency x severity) by predicted decile.</p>
+      ${lineChart({data:R.pp_lift,series:[{key:'actual',label:'Actual',color:'--ink'},{key:'glm',label:'GLM',color:'--b',dash:true},{key:'gbm',label:'GBM',color:'--a'}],yFmt:v=>f(v,0)})}</div></div>`;
+
+  $('#lr').innerHTML=`<div class="card"><h2>95% bootstrap intervals on loss ratio, by policy segment</h2>
+    <p class="note">Segments are exposure-equal deciles of GBM predicted loss cost. Each replicate resamples policies, simulates Poisson claim counts, and draws severities from the empirical heavy-tailed residual pool. The interval is a predictive range for the observed loss ratio. <b>${cv.covered} of ${cv.total}</b> observed ratios fall inside.</p>
+    ${intervalChart(R.loss_ratio_segments)}</div>
+    <div class="card" style="margin-top:16px"><table><tr><th>Segment</th><th>Policies</th><th>Claims</th><th>Predicted LR</th><th>Observed LR</th><th>95% interval</th><th></th></tr>
+    ${R.loss_ratio_segments.map(s=>`<tr><td>${s.segment}</td><td>${s.policies.toLocaleString()}</td><td>${s.claims.toLocaleString()}</td><td>${pct(s.predicted_lr)}</td><td>${pct(s.observed_lr)}</td><td>${pct(s.ci_low)} - ${pct(s.ci_high)}</td><td><span class="pill ${s.covered?'ok':'bad'}">${s.covered?'covered':'missed'}</span></td></tr>`).join('')}</table>
+    <p class="note" style="margin-top:10px">Premium proxy = GLM pure premium / ${pct(m.target_lr,0)}. Treat loss ratios as relative model checks, not real book results.</p></div>`;
+
+  $('#limits').innerHTML=`<div class="card"><h2>Where the model is weakest</h2>
+    <p class="note">Actual / expected claim counts on risk slices (1.00 = perfect). Below 0.95 means over-prediction; above 1.05 means under-prediction.</p>
+    <table><tr><th>Slice</th><th>Policies</th><th>Claims</th><th>Actual freq</th><th>GLM freq</th><th>GBM freq</th><th>A/E GLM</th><th>A/E GBM</th></tr>
+    ${R.slices.map(s=>{const c=s.ae_gbm>1.05?'bad':s.ae_gbm<.95?'warn':'ok',t=s.ae_gbm>1.05?'under':s.ae_gbm<.95?'over':'ok';
+      return `<tr><td>${s.slice}</td><td>${s.policies.toLocaleString()}</td><td>${s.claims.toLocaleString()}</td><td>${pct(s.actual_freq)}</td><td>${pct(s.glm_freq)}</td><td>${pct(s.gbm_freq)}</td><td>${f(s.ae_glm)}</td><td><span class="pill ${c}">${f(s.ae_gbm)} ${t}</span></td></tr>`}).join('')}</table>
+    <ul class="note" style="margin-top:12px">
+     <li>No premium, expense or reserve data: loss ratios use a proxy tariff.</li>
+     <li>Severity is capped at ${m.severity_cap.toLocaleString()} per claim; large-loss behaviour is not modeled.</li>
+     <li>One snapshot of French motor TPL: no time dimension, so drift and inflation cannot be tested.</li>
+     <li>Sparse segments (young, high-malus, dense urban) carry few claims, so estimates there are noisy.</li></ul></div>`;
+
+  $('#score').innerHTML=`<div class="card"><h2>Score a policy</h2><p class="note">What-if tool using the trained models on your machine. Expected values per policy-year.</p>
+   <form id="sf">
+    ${num('DrivAge','Driver age',18,90,40)}${num('VehAge','Vehicle age (yrs)',0,20,5)}${num('VehPower','Vehicle power',4,15,6)}${num('BonusMalus','Bonus-malus',50,230,50)}${num('Density','Density (per km2)',1,30000,1200)}
+    ${sel('Area','Area',['A','B','C','D','E','F'],'C')}${sel('VehBrand','Brand',['B1','B2','B3','B4','B5','B6','B10','B11','B12','B13','B14'],'B12')}${sel('VehGas','Fuel',['Regular','Diesel'],'Regular')}${sel('Region','Region',['R11','R21','R22','R23','R24','R25','R26','R31','R41','R42','R43','R52','R53','R54','R72','R73','R74','R82','R83','R91','R93','R94'],'R24')}
+    <div style="align-self:end"><button class="btn" id="go" type="submit">Score policy</button></div></form>
+   <div id="sout" class="grid g4" style="margin-top:16px"></div></div>`;
+  $('#sf').onsubmit=async e=>{e.preventDefault();const b=$('#go');b.disabled=true;
+    const p=Object.fromEntries(new FormData(e.target));
+    try{const r=await fetch('/api/score',{method:'POST',body:JSON.stringify(p)}),j=await r.json();
+      if(j.error)throw new Error(j.error);
+      $('#sout').innerHTML=kpi('Claim frequency (GBM)',pct(j.freq_gbm),'GLM '+pct(j.freq_glm))+kpi('Expected severity','EUR '+f(j.severity,0),'per claim')+kpi('Pure premium (GBM)','EUR '+f(j.pure_premium_gbm,0),'GLM EUR '+f(j.pure_premium_glm,0))+kpi('P(at least 1 claim / yr)',pct(j.p_claim_year));
+    }catch(err){$('#sout').innerHTML=`<div class="card" style="color:var(--bad)">${err.message}</div>`}b.disabled=false};
+
+  buildSlides();
+}
+const num=(n,l,mi,ma,v)=>`<label>${l}<input name="${n}" type="number" min="${mi}" max="${ma}" value="${v}" required></label>`;
+const sel=(n,l,o,v)=>`<label>${l}<select name="${n}">${o.map(x=>`<option${x==v?' selected':''}>${x}</option>`).join('')}</select></label>`;
+function calibration(rows){
+  const w=520,h=300,m={l:50,r:12,t:10,b:34},iw=w-m.l-m.r,ih=h-m.t-m.b;
+  const mx=Math.max(...rows.map(r=>Math.max(r.actual,r.gbm)))*1.05,X=v=>m.l+iw*v/mx,Y=v=>m.t+ih*(1-v/mx);
+  let s=`<svg viewBox="0 0 ${w} ${h}" role="img">`;
+  for(let i=0;i<=4;i++){const v=mx*i/4;s+=`<line class="ax" x1="${m.l}" x2="${w-m.r}" y1="${Y(v)}" y2="${Y(v)}"/><text x="${m.l-6}" y="${Y(v)+4}" text-anchor="end">${pct(v,0)}</text><text x="${X(v)}" y="${h-16}" text-anchor="middle">${pct(v,0)}</text>`}
+  s+=`<line x1="${X(0)}" y1="${Y(0)}" x2="${X(mx)}" y2="${Y(mx)}" stroke="${css('--muted')}" stroke-dasharray="4 4"/>`;
+  rows.forEach(r=>s+=`<circle cx="${X(r.gbm)}" cy="${Y(r.actual)}" r="4" fill="${css('--a')}"><title>bin ${r.bin}: predicted ${pct(r.gbm,2)}, actual ${pct(r.actual,2)}</title></circle>`);
+  return s+`<text x="${m.l+iw/2}" y="${h-2}" text-anchor="middle">Predicted frequency</text></svg><div class="legend"><span><i style="background:${css('--a')};border-radius:50%"></i>GBM bins (y = actual)</span></div>`;
+}
+
+/* ---------- slides ---------- */
+let si=0,SL=[];
+function buildSlides(){
+  const m=R.meta,fr=R.frequency,cv=R.coverage,w=R.slices.slice().sort((a,b)=>b.ae_gbm-a.ae_gbm)[0];
+  SL=[
+   `<h2>Auto Insurance Claims Model Validation</h2><p>Can we price motor risk better than a standard GLM, and can we trust the answer?</p><p class="note">${m.dataset}</p>`,
+   `<h2>The business question</h2><ul><li>Insurers must charge each driver a price that matches expected claim cost.</li><li>Under-pricing loses money; over-pricing loses customers.</li><li>We test whether a machine-learning model prices more accurately, and where it fails.</li></ul>`,
+   `<h2>The data</h2><div class="big">${m.policies.toLocaleString()}</div><p>real policies, ${m.claims.toLocaleString()} claims, ${f(m.exposure_years,0)} policy-years. About ${f(m.claim_rate*100,1)} claims per 100 policy-years; average claim EUR ${f(m.avg_severity,0)}.</p>`,
+   `<h2>How we built it</h2><ul><li>SQL loads and cleans raw tables (capped outliers, joined claim amounts).</li><li>Python builds driver, vehicle and region features.</li><li>Two models: a standard GLM baseline and a gradient-boosted model.</li><li>Everything judged on policies the models never saw (20% hold-out).</li></ul>`,
+   `<h2>Result: more accurate claim prediction</h2><div class="big">${f(fr.improvement_pct,1)}%</div><p>lower held-out Poisson deviance than the GLM baseline (${f(fr.gbm_deviance,4)} vs ${f(fr.glm_deviance,4)}).</p>`,
+   `<h2>It ranks risk well</h2><p>Riskiest decile claims at <b>${pct(R.lift[9].actual)}</b> a year vs <b>${pct(R.lift[0].actual)}</b> for the safest: a ${f(R.lift[9].actual/R.lift[0].actual,1)}x spread. Gini ${f(fr.gbm_gini,3)} (GLM ${f(fr.glm_gini,3)}).</p><div class="card">${lineChart({data:R.lift,series:[{key:'actual',label:'Actual',color:'--ink'},{key:'gbm',label:'GBM',color:'--a'}]})}</div>`,
+   `<h2>Predictions are calibrated</h2><p>When the model says 10% risk, about 10% of policies claim. Calibration bins sit on the diagonal.</p><div class="card" style="max-width:520px">${calibration(R.calibration)}</div>`,
+   `<h2>Loss-ratio uncertainty</h2><div class="big">${cv.covered} of ${cv.total}</div><p>policy segments had their observed loss ratio inside the model's 95% bootstrap interval. Loss ratios use a proxy tariff, since the data has no premiums.</p>`,
+   `<h2>Where it falls short</h2><ul><li>Weakest slice: <b>${w.slice}</b> (A/E ${f(w.ae_gbm)}).</li><li>Severity is hard to predict: few, heavy-tailed claims.</li><li>Single snapshot: no inflation or drift testing.</li><li>No expenses, reserves or real premiums.</li></ul>`,
+   `<h2>Next steps</h2><ul><li>Add real premiums and test pricing impact.</li><li>Add monotonic constraints and explainability for regulators.</li><li>Monitor drift and re-validate quarterly.</li><li>Fit a large-loss layer for claims above the cap.</li></ul>`];
+  drawSlide();
+}
+function drawSlide(){
+  $('#slides').innerHTML=`<div class="slides-wrap"><div class="card slide">${SL[si]}</div><div class="slidebar"><button id="pv" ${si==0?'disabled':''}>Previous</button><span class="num">${si+1} / ${SL.length}</span><button id="nx" ${si==SL.length-1?'disabled':''}>Next</button></div></div>`;
+  $('#pv').onclick=()=>{si--;drawSlide()};$('#nx').onclick=()=>{si++;drawSlide()};
+}
+addEventListener('keydown',e=>{if($('#slides').hidden||/INPUT|SELECT/.test(e.target.tagName))return;
+  if(e.key=='ArrowRight'&&si<SL.length-1){si++;drawSlide()}if(e.key=='ArrowLeft'&&si>0){si--;drawSlide()}});
+
+/* ---------- tabs + boot ---------- */
+$('#tabs').innerHTML=TABS.map(([id,l],i)=>`<button role="tab" data-id="${id}" aria-selected="${i==0}">${l}</button>`).join('');
+$('#tabs').onclick=e=>{const b=e.target.closest('button');if(!b)return;
+  document.querySelectorAll('#tabs button').forEach(x=>x.setAttribute('aria-selected',x==b));
+  TABS.forEach(([id])=>$('#'+id).hidden=id!=b.dataset.id)};
+fetch('/api/results').then(r=>r.ok?r.json():Promise.reject(new Error('No results yet. Run: python -m src.pipeline'))).then(j=>{R=j;renderAll()}).catch(e=>{$('#err').style.display='block';$('#err').textContent=e.message;$('#sub').textContent=''});
+</script>
+</body>
+</html>
